@@ -4,7 +4,7 @@
 return {
   -- Ensure js-debug-adapter is installed via Mason.
   {
-    "williamboman/mason.nvim",
+    "mason-org/mason.nvim",
     opts = function(_, opts)
       opts.ensure_installed = opts.ensure_installed or {}
       vim.list_extend(opts.ensure_installed, { "js-debug-adapter" })
@@ -14,38 +14,34 @@ return {
   -- Configure nvim-dap with the pwa-node adapter and JS/TS configurations.
   {
     "mfussenegger/nvim-dap",
-    opts = function()
+    config = function(_, opts)
       local dap = require("dap")
 
+
+      dap.defaults.fallback.terminal_win_cmd = "tabnew"
+
       -- Adapter: launches Mason's js-debug DAP server on a free port.
-      if not dap.adapters["pwa-node"] then
-        dap.adapters["pwa-node"] = {
-          type = "server",
-          host = "localhost",
-          port = "${port}",
-          executable = {
-            command = "node",
-            args = {
-              vim.fn.stdpath("data")
-                .. "/mason/packages/js-debug-adapter/js-debug/src/dapDebugServer.js",
-              "${port}",
-            },
+      dap.adapters["pwa-node"] = {
+        type = "server",
+        host = "localhost",
+        port = "${port}",
+        executable = {
+          command = "node",
+          args = {
+            vim.fn.stdpath("data") .. "/mason/packages/js-debug-adapter/js-debug/src/dapDebugServer.js",
+            "${port}",
           },
-        }
-      end
-      -- Reuse the same adapter for the other request types js-debug exposes.
-      if not dap.adapters["node"] then
-        dap.adapters["node"] = function(cb, config)
-          if config.type == "node" then
-            config.type = "pwa-node"
-          end
-          local nativeAdapter = dap.adapters["pwa-node"]
-          if type(nativeAdapter) == "function" then
-            nativeAdapter(cb, config)
-          else
-            cb(nativeAdapter)
-          end
-        end
+        },
+      }
+
+      -- Alias "node" → "pwa-node" so .vscode/launch.json configs work.
+      dap.adapters["node"] = dap.adapters["pwa-node"]
+
+      -- When a breakpoint is hit, make that session the active one so that
+      -- dap.continue() targets the correct child session (js-debug spawns a
+      -- separate child session for each Node worker process).
+      dap.listeners.after.event_stopped["focus_session"] = function(session)
+        dap.set_session(session)
       end
 
       local js_filetypes = {
@@ -147,6 +143,28 @@ return {
           sourceMaps = true,
           resolveSourceMapLocations = resolve_source_map_locations,
           skipFiles = { "<node_internals>/**", "**/node_modules/**" },
+          console = "integratedTerminal",
+        },
+        -- 7. Debug Live E2E tests (clportal-functions).
+        --    Uses node + vitest.mjs directly to avoid pnpm-as-runtimeExecutable
+        --    bug in js-debug-adapter (duplicate configurationDone → immediate exit).
+        {
+          type = "pwa-node",
+          request = "launch",
+          name = "Debug Live E2E",
+          cwd = "${workspaceFolder}",
+          runtimeExecutable = "node",
+          runtimeArgs = {
+            "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+            "run",
+            "--no-file-parallelism",
+            "--testTimeout=60000",
+            "tests/e2e/live/live.e2e.spec.ts",
+          },
+          env = { RUN_LIVE = "true" },
+          sourceMaps = true,
+          resolveSourceMapLocations = { "${workspaceFolder}/**", "!**/node_modules/**" },
+          skipFiles = { "<node_internals>/**" },
           console = "integratedTerminal",
         },
       }
