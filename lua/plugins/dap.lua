@@ -110,6 +110,20 @@ return {
           skipFiles = { "<node_internals>/**", "**/node_modules/**" },
           restart = true,
         },
+        -- 5. Attach to AppSync Event Publisher debug session (port 9330).
+        --    Use this when running with --inspect-brk flag.
+        {
+          type = "pwa-node",
+          request = "attach",
+          name = "Attach to Event Publisher (9330)",
+          address = "localhost",
+          port = 9330,
+          cwd = "${workspaceFolder}",
+          sourceMaps = true,
+          resolveSourceMapLocations = resolve_source_map_locations,
+          skipFiles = { "<node_internals>/**", "**/node_modules/**" },
+          restart = true,
+        },
         -- 5. Debug current Jest test file.
         {
           type = "pwa-node",
@@ -165,6 +179,47 @@ return {
           sourceMaps = true,
           resolveSourceMapLocations = { "${workspaceFolder}/**", "!**/node_modules/**" },
           skipFiles = { "<node_internals>/**" },
+          console = "integratedTerminal",
+        },
+        -- 8. Debug AppSync Event Publisher with production AWS.
+        --    Runs the syncSession resolver which calls publishEvent().
+        --    Requires APPsync_EVENTS_API_ID to be set in environment.
+        {
+          type = "pwa-node",
+          request = "launch",
+          name = "Debug AppSync Event Publisher (Production)",
+          program = "${workspaceFolder}/src-ts/appsync/index.ts",
+          cwd = "${workspaceFolder}",
+          runtimeExecutable = "npx",
+          runtimeArgs = { "--yes", "tsx" },
+          env = {
+            APPsync_REGION = "us-east-1",
+            APPsync_EVENTS_API_ID = "${env:APPsync_EVENTS_API_ID}",
+            AWS_REGION = "us-east-1",
+            AWS_PROFILE = "Encova-PermSet-SysAdmin-296519309226",
+          },
+          sourceMaps = true,
+          resolveSourceMapLocations = { "${workspaceFolder}/**", "!**/node_modules/**" },
+          skipFiles = { "<node_internals>/**", "**/node_modules/**" },
+          console = "integratedTerminal",
+        },
+        -- 9. Debug AppSync Event Publisher with mock data (no AWS calls).
+        {
+          type = "pwa-node",
+          request = "launch",
+          name = "Debug Event Publisher (Mock)",
+          program = "${workspaceFolder}/src-ts/appsync/index.ts",
+          cwd = "${workspaceFolder}",
+          runtimeExecutable = "npx",
+          runtimeArgs = { "--yes", "tsx" },
+          env = {
+            APPsync_REGION = "us-east-1",
+            APPsync_EVENTS_API_ID = "mock-api-id",
+            AWS_REGION = "us-east-1",
+          },
+          sourceMaps = true,
+          resolveSourceMapLocations = { "${workspaceFolder}/**", "!**/node_modules/**" },
+          skipFiles = { "<node_internals>/**", "**/node_modules/**" },
           console = "integratedTerminal",
         },
       }
